@@ -119,7 +119,10 @@ def main(args):
         for k, v in timers.items():
             logger.info(' | {}: {:.3f}s'.format(k, v.average_time))
 
-        poses = [convert_pose_data(pose) for pose in cls_keyps[1]]
+        if cls_keyps is not None:
+            poses = [convert_pose_data(pose) for pose in cls_keyps[1]]
+        else:
+            poses = []
         frame_poses.append(poses)
     with open(os.path.join(args.output_dir, cam_name + '-frame-poses.txt'), 'w') as f:
         f.write('\n'.join(get_json(frame_pose) for frame_pose in frame_poses))
