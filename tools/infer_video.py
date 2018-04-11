@@ -80,10 +80,10 @@ def parse_args():
         type=str
     )
     parser.add_argument(
-        '--image-ext',
-        dest='image_ext',
-        help='image file name extension (default: jpg)',
-        default='jpg',
+        '--scene-dir',
+        dest='scene_dir',
+        help='path to scene directory with derived/cam_*/*.mp4',
+        default=None,
         type=str
     )
     parser.add_argument(
@@ -96,6 +96,19 @@ def parse_args():
 
 
 def main(args):
+    if args.scene_dir is None and args.video_file is not None:
+        _main(args)
+    elif args.scene_dir is not None and args.video_file is None:
+        derived_dir = os.path.join(args.scene_dir, 'derived')
+        for cam_dir in glob.glob(os.path.join(derived_dir, 'cam_*')):
+            video_file = glob.glob(os.path.join(cam_dir, '*.mp4'))[0]
+            args.video_file = video_file
+            _main(args)
+    else:
+        raise ValueError('Must specify either scene-dir or video_file not both.')
+
+
+def _main(args):
     logger = logging.getLogger(__name__)
     merge_cfg_from_file(args.cfg)
     cfg.NUM_GPUS = 1
