@@ -141,7 +141,7 @@ def _main(args):
         else:
             poses = []
         frame_poses.append(poses)
-    with open(os.path.join(args.output_dir, cam_name + '-frame-poses.txt'), 'w') as f:
+    with open(os.path.join(args.output_dir, cam_name + '-mrcnn-frame-poses.txt'), 'w') as f:
         f.write('\n'.join(get_json(frame_pose) for frame_pose in frame_poses))
 
 
