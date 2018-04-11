@@ -100,26 +100,26 @@ def parse_args():
 
 
 def main(args):
-    if args.scene_dir is None and args.video_file is not None:
-        _main(args)
-    elif args.scene_dir is not None and args.video_file is None:
-        derived_dir = os.path.join(args.scene_dir, 'derived')
-        for cam_dir in glob.glob(os.path.join(derived_dir, 'cam_*')):
-            video_file = glob.glob(os.path.join(cam_dir, '*.mp4'))[0]
-            args.video_file = video_file
-            _main(args)
-    else:
-        raise ValueError('Must specify either scene-dir or video_file not both.')
-
-
-def _main(args):
-    logger = logging.getLogger(__name__)
     merge_cfg_from_file(args.cfg)
     cfg.NUM_GPUS = 1
     args.weights = cache_url(args.weights, cfg.DOWNLOAD_CACHE)
     assert_and_infer_cfg(cache_urls=False)
     model = infer_engine.initialize_model_from_cfg(args.weights)
-    dummy_coco_dataset = dummy_datasets.get_coco_dataset()
+
+    if args.scene_dir is None and args.video_file is not None:
+        _main(args, model)
+    elif args.scene_dir is not None and args.video_file is None:
+        derived_dir = os.path.join(args.scene_dir, 'derived')
+        for cam_dir in glob.glob(os.path.join(derived_dir, 'cam_*')):
+            video_file = glob.glob(os.path.join(cam_dir, '*.mp4'))[0]
+            args.video_file = video_file
+            _main(args, model)
+    else:
+        raise ValueError('Must specify either scene-dir or video_file not both.')
+
+
+def _main(args, model):
+    logger = logging.getLogger(__name__)
 
     cam_name = os.path.splitext(os.path.basename(args.video_file))[0]
 
