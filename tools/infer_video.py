@@ -87,7 +87,11 @@ def parse_args():
         type=str
     )
     parser.add_argument(
-        'video_file', help='path to mp4', default=None
+        '--video-file',
+        dest='video_file',
+        help='path to mp4',
+        default=None,
+        type=str
     )
     if len(sys.argv) == 1:
         parser.print_help()
