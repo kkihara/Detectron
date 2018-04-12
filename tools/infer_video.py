@@ -87,6 +87,13 @@ def parse_args():
         type=str
     )
     parser.add_argument(
+        '--info',
+        dest='info',
+        help='path to info.json file for hand benchmarking',
+        default=None,
+        type=str
+    )
+    parser.add_argument(
         '--video-file',
         dest='video_file',
         help='path to mp4',
@@ -106,14 +113,16 @@ def main(args):
     assert_and_infer_cfg(cache_urls=False)
     model = infer_engine.initialize_model_from_cfg(args.weights)
 
-    if args.scene_dir is None and args.video_file is not None:
+    if args.info is None and args.scene_dir is None and args.video_file is not None:  # video only
         _main(args, model)
-    elif args.scene_dir is not None and args.video_file is None:
+    elif args.info is None and args.scene_dir is not None and args.video_file is None:  # scene dir only
         derived_dir = os.path.join(args.scene_dir, 'derived')
         for cam_dir in glob.glob(os.path.join(derived_dir, 'cam_*')):
             video_file = glob.glob(os.path.join(cam_dir, '*.mp4'))[0]
             args.video_file = video_file
             _main(args, model)
+    elif args.info is not None and args.scene_dir is None and args.video_file is None:  # info only
+        _main(args, model)
     else:
         raise ValueError('Must specify either scene-dir or video_file not both.')
 
@@ -121,10 +130,13 @@ def main(args):
 def _main(args, model):
     logger = logging.getLogger(__name__)
 
-    cam_name = os.path.splitext(os.path.basename(args.video_file))[0]
+    if args.video_file is not None:
+        gen = get_frames(args.video_file)
+    else:
+        gen = get_infos(args.info)
 
     frame_poses = []
-    for frame_num, im in get_frames(args.video_file):
+    for frame_num, im in gen:
         logger.info('Processing frame num: {}'.format(frame_num))
         timers = defaultdict(Timer)
         t = time.time()
@@ -141,8 +153,42 @@ def _main(args, model):
         else:
             poses = []
         frame_poses.append(poses)
+
+    if args.video_file is not None:
+        write_frame_poses(args, frame_poses)
+    else:
+        calc_error(args, frame_poses)
+
+
+def write_frame_poses(args, frame_poses):
+    cam_name = os.path.splitext(os.path.basename(args.video_file))[0]
     with open(os.path.join(args.output_dir, cam_name + '-mrcnn-frame-poses.txt'), 'w') as f:
         f.write('\n'.join(get_json(frame_pose) for frame_pose in frame_poses))
+
+
+THRESH = 30.0
+def calc_error(args, frame_poses):
+    with open(args.info, 'r') as f:
+        infos = json.load(f)
+
+    correct = 0
+    for info, poses in zip(infos, frame_poses):
+        min_dist = np.inf
+        point = np.array(info['pos'])
+
+        for pose in poses:
+            left_wrist = np.array(pose[KEYPS_IDX.index('left_wrist')])
+            if np.isfinite(left_wrist).all():
+                dist = np.linalg.norm(point, left_wrist)
+                min_dist = min(dist, min_dist)
+            right_wrist = np.array(pose[KEYPS_IDX.index('right_wrist')])
+            if np.isfinite(right_wrist).all():
+                dist = np.linalg.norm(point, right_wrist)
+                min_dist = min(dist, min_dist)
+        if min_dist < THRESH:
+            correct += 1
+
+    print('error:', 1 - (correct / len(infos)))
 
 
 KEYPS_IDX = [
@@ -175,6 +221,8 @@ def get_json(data):
 coco_keyps, _ = keypoint_utils.get_keypoints()
 
 KEYP_THRESH = 2
+MAX_X = 720
+MAX_Y = 1280
 
 def convert_pose_data(data):
     new_data = np.full(38, np.nan)
@@ -206,6 +254,15 @@ def get_frames(video_file):
             break
         yield frame_num, frame
         frame_num += 1
+
+
+def get_infos(info_file):
+    with open(info_file, 'r') as f:
+        infos = json.load(f)
+    for i, info in enumerate(infos):
+        img_path = os.path.join('/data/vids', info['relpath'])
+        img = cv2.imread(img_path)
+        yield i, img
 
 
 if __name__ == '__main__':
