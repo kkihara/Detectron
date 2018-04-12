@@ -193,7 +193,7 @@ def convert_pose_data(data):
                 new_data[idx:idx+2] = (left_shoulder + right_shoulder) / 2.0
         else:
             if data[2, coco_keyps.index(keyp)] > KEYP_THRESH:
-                new_data[idx:idx+2] = data[:2, coco_keyps.index(keyp)]
+                new_data[idx:idx+2] = data[:2, coco_keyps.index(keyp)][::-1]
     return new_data.tolist()
 
 
