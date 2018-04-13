@@ -149,7 +149,8 @@ def _main(args, model):
             logger.info(' | {}: {:.3f}s'.format(k, v.average_time))
 
         if cls_keyps is not None:
-            poses = [convert_pose_data(pose) for pose in cls_keyps[1]]
+            poses = [convert_pose_data(pose) for box, pose in zip(cls_boxes[1], cls_keyps[1])
+                     if box[-1] > BOX_THRESH]
         else:
             poses = []
         frame_poses.append(poses)
@@ -220,6 +221,7 @@ def get_json(data):
 
 coco_keyps, _ = keypoint_utils.get_keypoints()
 
+BOX_THRESH = 0.9
 KEYP_THRESH = 2
 MAX_X = 720
 MAX_Y = 1280
